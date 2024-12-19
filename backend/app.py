@@ -82,6 +82,44 @@ def load_face_data():
                 print(f"No face detected in image {image_path} for user {user_id}")
 load_face_data()
 
+@app.route('/dataset_generator', methods=['POST'])
+def dataset_generator():
+    CASC_PATH = 'haarcascade_frontalface_default.xml'
+    DATASET_PATH = 'dataset_foto/'
+    person_name = request.json.get("person_name")  # Get the person name from frontend
+    save_dir = os.path.join(DATASET_PATH, person_name)
+    os.makedirs(save_dir, exist_ok=True)
+
+    cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+    num_images_to_capture = 10
+    count = 0
+
+    while count < num_images_to_capture:
+        ret, frame = cap.read()
+        if not ret:
+            return jsonify({"status": "error", "message": "Failed to capture image"}), 400
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+        
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            face = frame[y:y + h, x:x + w]
+            face_resized = cv2.resize(face, (200, 200))
+            face_filename = os.path.join(save_dir, f"face_{count + 1}.jpg")
+            cv2.imwrite(face_filename, face_resized)
+            count += 1
+
+        if count >= num_images_to_capture:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+    return jsonify({"status": "success", "message": f"Successfully captured {num_images_to_capture} images"})
+
 def decode_image(image_b64):
     image_data = base64.b64decode(image_b64.split(',')[1])
     np_arr = np.frombuffer(image_data, np.uint8)
